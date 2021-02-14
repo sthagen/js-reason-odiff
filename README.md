@@ -25,12 +25,12 @@ ODiff is a blazing fast native image comparison tool. Check [benchmarks](#benchm
 
 ## Features
 
-- ✅ .png, .jpg, .jpeg, .bmp – Files supported.
-- ✅ Cross-format comparison - Yes .jpg vs .png comparison is real.
-- ✅ Supports comparison of images with different layouts
+- ✅ .png, .jpg, .jpeg, .bmp, .tiff, .xpm – Files supported.
+- ✅ Cross-format comparison - Yes .jpg vs .png comparison without any problems.
+- ✅ Supports comparison of images with different layouts.
 - ✅ Using [YIQ NTSC
-  transmission algorithm](http://www.progmat.uaem.mx:8080/artVol2Num2/Articulo3Vol2Num2.pdf) to determine visual difference
-- ✅ No dependencies for `.png` comparison. 
+  transmission algorithm](http://www.progmat.uaem.mx:8080/artVol2Num2/Articulo3Vol2Num2.pdf) to determine visual difference.
+- ✅ No dependencies for `.png` comparison. Only several system C dependencies for other formats, [more info](#lib-dependencies).
 
 ### Coming in the nearest future:
 
@@ -80,7 +80,7 @@ NodeJS Api is pretty tiny as well. Here is a typescript interface we have:
 
 ```ts
 type ODiffOptions = {
-  /** Output full diff image. */
+  /** Output only changed pixels over transparent background. */
   outputDiffMask: boolean;
   /** Do not compare images and produce output if images layout is different. */
   failOnLayoutDiff: boolean;
