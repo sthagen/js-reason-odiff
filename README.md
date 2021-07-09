@@ -13,7 +13,7 @@
 
 ## Why Odiff?
 
-ODiff is a blazing fast native image comparison tool. Check [benchmarks](#benchmarks) for the results, but it compares the visual difference between 2 images in **milliseconds**. It was originally designed to handle the "big" images. Thanks to [Ocaml](https://ocaml.org/) and its speedy and predictable compiler we can significantly speed up your CI pipeline.
+ODiff is a blazing fast native image comparison tool. Check [benchmarks](#benchmarks) for the results, but it compares the visual difference between 2 images in **milliseconds**. It was originally designed to handle the "big" images. Thanks to [OCaml](https://ocaml.org/) and its speedy and predictable compiler we can significantly speed up your CI pipeline.
 
 ## Demo
 
@@ -25,18 +25,19 @@ ODiff is a blazing fast native image comparison tool. Check [benchmarks](#benchm
 
 ## Features
 
-- ✅ .png, .jpg, .jpeg, .bmp, .tiff, .xpm – Files supported.
 - ✅ Cross-format comparison - Yes .jpg vs .png comparison without any problems.
 - ✅ Supports comparison of images with different layouts.
+- ✅ Anti-aliasing detection
+- ✅ Ignoring regions
 - ✅ Using [YIQ NTSC
   transmission algorithm](http://www.progmat.uaem.mx:8080/artVol2Num2/Articulo3Vol2Num2.pdf) to determine visual difference.
-- ✅ No dependencies for `.png` comparison. Only several system C dependencies for other formats, [more info](#lib-dependencies).
+- ✅ No dependencies for `.png` comparison
 
 ### Coming in the nearest future:
 
-- ⏹ Ignoring regions
-- ⏹ Anti-aliasing support
-- ⏹ Remote images compare
+- ⏹ Support different image formats `.jpeg`, `.tiff` and `.bmp` 
+- ⏹ Reading image from memory buffer
+- ⏹ Reading images from url 
 
 ## Usage
 
@@ -78,15 +79,27 @@ odiff --help
 
 NodeJS Api is pretty tiny as well. Here is a typescript interface we have:
 
-```ts
-type ODiffOptions = {
-  /** Output only changed pixels over transparent background. */
+<!--inline-interface-start-->
+```tsx
+export type ODiffOptions = Partial<{
+  /** Color used to highlight different pixels in the output (in hex format e.g. #cd2cc9). */
+  diffColor: string;
+  /** Output full diff image. */
   outputDiffMask: boolean;
   /** Do not compare images and produce output if images layout is different. */
   failOnLayoutDiff: boolean;
   /** Color difference threshold (from 0 to 1). Less more precise. */
   threshold: number;
-};
+  /** If this is true, antialiased pixels are not counted to the diff of an image */
+  antialiasing: boolean;
+  /** An array of regions to ignore in the diff. */
+  ignoreRegions: Array<{
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+  }>;
+}>;
 
 declare function compare(
   basePath: string,
@@ -94,10 +107,22 @@ declare function compare(
   diffPath: string,
   options?: ODiffOptions
 ): Promise<
-  { match: true } | { match: false; reason: "layout-diff" | "pixel-diff" }
+  | { match: true }
+  | { match: false; reason: "layout-diff" }
+  | {
+      match: false;
+      reason: "pixel-diff";
+      /** Amount of different pixels */
+      diffCount: number;
+      /** Percentage of different pixels in the whole image */
+      diffPercentage: number;
+    }
 >;
-```
 
+export { compare };
+```
+<!--inline-interface-end-->"
+ 
 Compare option will return `{ match: true }` if images are identical. Otherwise return `{ match: false, reason: "*" }` with a reason why images were different.
 
 > Make sure that diff output file will be created only if images have pixel difference we can see 👀
@@ -121,12 +146,6 @@ Then give it a try 👀
 ```
 odiff --help
 ```
-
-### lib* dependencies
-
-Make sure if you want to compare **other** than `.png` images it is required to install the proper C library for each format. For `.jpg` – [libjpg](http://libjpeg.sourceforge.net/), for `.tiff` –[libtiff](http://www.libtiff.org/), for `.xpm` - libxpm. 
-
-`.png` images works out of the box.
  
 ### MacOS
 
@@ -168,7 +187,7 @@ Lets compare 2 screenshots of full-size [https://cypress.io](cypress.io) page:
 | ImageMagick `compare www.cypress.io-1.png www.cypress.io.png -compose src diff-magick.png` | 8.881 ± 0.121 |   8.692 |   9.066 | 7.65 ± 0.04 |
 | `odiff www.cypress.io-1.png www.cypress.io.png www.cypress-diff.png`                       | 1.168 ± 0.008 |   1.157 |   1.185 |        1.00 |
 
-Wow. Odiff is mostly 2 times faster than imagemagick and pixelmatch. And this will be even clearer if image will become larger. Lets compare an [8k image](images/water-4k.png) to find a difference with [another 8k image](images/water-4k-2.png):
+Wow. Odiff is mostly 6 times faster than imagemagick and pixelmatch. And this will be even clearer if image will become larger. Lets compare an [8k image](images/water-4k.png) to find a difference with [another 8k image](images/water-4k-2.png):
 
 | Command                                                                       |       Mean [s] | Min [s] | Max [s] |    Relative |
 | :---------------------------------------------------------------------------- | -------------: | ------: | ------: | ----------: |

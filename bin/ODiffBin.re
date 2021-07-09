@@ -1,95 +1,4 @@
 open Cmdliner;
-open Odiff.Diff;
-
-let getIOModule = filename =>
-  Filename.extension(filename)
-  |> (
-    fun
-    | ".png" => ((module ODiffIO.PureC_IO.IO): (module Odiff.ImageIO.ImageIO))
-    | _ => ((module ODiffIO.CamlImagesIO.IO): (module Odiff.ImageIO.ImageIO))
-  );
-
-let main =
-    (
-      img1Path,
-      img2Path,
-      diffPath,
-      threshold,
-      outputDiffMask,
-      failOnLayoutChange,
-      diffColorHex,
-    ) => {
-  open! Odiff.ImageIO;
-
-  module IO1 = (val getIOModule(img1Path));
-  module IO2 = (val getIOModule(img2Path));
-
-  module Diff = MakeDiff(IO1, IO2);
-
-  let img1 = IO1.loadImage(img1Path);
-  let img2 = IO2.loadImage(img2Path);
-
-  let (diffOutput, exitCode) =
-    switch (
-      Diff.diff(
-        img1,
-        img2,
-        ~outputDiffMask,
-        ~threshold,
-        ~failOnLayoutChange,
-        ~diffPixel=
-          Color.ofHexString(diffColorHex)
-          |> (
-            fun
-            | Some(col) => col
-            | None => (255, 0, 0) // red 
-          ),
-        (),
-      )
-    ) {
-    | Layout =>
-      Console.log(
-        <Pastel>
-          <Pastel color=Red bold=true> "Failure! " </Pastel>
-          "Images have different layout.\n"
-        </Pastel>,
-      );
-      (None, 21);
-
-    | Pixel((diffOutput, diffCount)) when diffCount == 0 =>
-      Console.log(
-        <Pastel>
-          <Pastel color=Green bold=true> "Success! " </Pastel>
-          "Images are equal.\n"
-          <Pastel dim=true> "No diff output created." </Pastel>
-        </Pastel>,
-      );
-      (Some(diffOutput), 0);
-
-    | Pixel((diffOutput, diffCount)) =>
-      Console.log(
-        <Pastel>
-          <Pastel color=Red bold=true> "Failure! " </Pastel>
-          "Images are different.\n"
-          "Different pixels: "
-          <Pastel color=Red bold=true> {Int.to_string(diffCount)} </Pastel>
-        </Pastel>,
-      );
-
-      IO1.saveImage(diffOutput, diffPath);
-      (Some(diffOutput), 22);
-    };
-
-  IO1.freeImage(img1);
-  IO2.freeImage(img2);
-
-  switch (diffOutput) {
-  | Some(output) when outputDiffMask => IO1.freeImage(output)
-  | _ => ()
-  };
-
-  exit(exitCode);
-};
 
 let diffPath =
   Arg.(
@@ -148,15 +57,57 @@ let failOnLayout =
       )
   );
 
+let parsableOutput =
+  Arg.(
+    value
+    & flag
+    & info(
+        ["parsable-stdout"],
+        ~docv="PARSABLE_OUTPUT",
+        ~doc="Stdout parsable output",
+      )
+  );
+
 let diffColor =
   Arg.(
     value
     & opt(string, "")
     & info(
         ["diff-color"],
-        ~doc="Color used to highlight different pixels in the output (in hex format e.g. #cd2cc9).",
+        ~doc=
+          "Color used to highlight different pixels in the output (in hex format e.g. #cd2cc9).",
       )
   );
+
+let antialiasing = {
+  Arg.(
+    value
+    & flag
+    & info(
+        ["aa", "antialiasing"],
+        ~doc=
+          "With this flag enabled, antialiased pixels are not counted to the diff of an image",
+      )
+  );
+};
+
+let ignoreRegions = {
+  Arg.(
+    value
+    & opt(
+        list(
+          ~sep=',',
+          t2(~sep='-', t2(~sep=':', int, int), t2(~sep=':', int, int)),
+        ),
+        [],
+      )
+    & info(
+        ["i", "ignore"],
+        ~doc=
+          "An array of regions to ignore in the diff. One region looks like \"x1:y1-x2:y2\". Multiple regions are separated with a ','.",
+      )
+  );
+};
 
 let cmd = {
   let man = [
@@ -167,7 +118,7 @@ let cmd = {
 
   (
     Term.(
-      const(main)
+      const(Main.main)
       $ base
       $ comp
       $ diffPath
@@ -175,10 +126,13 @@ let cmd = {
       $ diffMask
       $ failOnLayout
       $ diffColor
+      $ parsableOutput
+      $ antialiasing
+      $ ignoreRegions
     ),
     Term.info(
       "odiff",
-      ~version="2.0.0",
+      ~version="2.4.2",
       ~doc="Find difference between 2 images.",
       ~exits=[
         Term.exit_info(0, ~doc="on image match"),
